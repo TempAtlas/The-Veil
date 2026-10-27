@@ -78,5 +78,18 @@ r = C.calculate(G, mon("GARCHOMP", { level: 30 }), mon("SNORLAX", { level: 50 })
 console.log("   ", r.desc);
 eq("KO text present", typeof r.ko.text, "string");
 
+// 12. Hazards and Leftovers in the KO text: Stealth Rock takes half of Charizard's HP (4x), Leftovers heals 1/16
+r = C.calculate(G, mon("GARCHOMP"), mon("CHARIZARD", { item: "LEFTOVERS" }), "DRAGON_CLAW", { defSide: { stealthRock: true } });
+eq("KO text names hazards", /after Stealth Rock and Leftovers recovery$/.test(r.ko.text), true);
+const noSR = C.calculate(G, mon("GARCHOMP"), mon("CHARIZARD"), "DRAGON_CLAW", {});
+eq("Stealth Rock lowers the hits needed", r.ko.n < noSR.ko.n, true);
+// a Heavy-Duty Boots holder ignores it
+r = C.calculate(G, mon("GARCHOMP"), mon("CHARIZARD", { item: "HEAVY_DUTY_BOOTS" }), "DRAGON_CLAW", { defSide: { stealthRock: true } });
+eq("Boots ignore Stealth Rock", r.ko.text, noSR.ko.text);
+
+// 13. The panel's own power box overrides the move's
+r = C.calculate(G, mon("GARCHOMP"), mon("BLISSEY"), "EARTHQUAKE", {}, { override: { bp: 50 } });
+eq("power override", r.hits[0].bp, 50);
+
 console.log(fails ? `${fails} FAILED` : "all engine checks pass");
 process.exit(fails ? 1 : 0);

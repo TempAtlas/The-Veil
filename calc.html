@@ -13,43 +13,45 @@
   <script src="assets/calc.js" defer></script>
 </head>
 <body>
-<main>
-  <h1>Damage Calculator</h1>
-  <p class="lead">Built on the game's own data: the Veil's starter variants, the reworked Illuminate, every trainer's
-    team on Normal and Hard. There are no EVs in the game, so there are none here.</p>
-
-  <datalist id="dl-species"></datalist>
+<main class="sc-main">
+  <datalist id="dl-sets"></datalist>
   <datalist id="dl-moves"></datalist>
   <datalist id="dl-abilities"></datalist>
 
-  <div class="calc">
-    <section class="panel side" id="side-a"></section>
-    <section class="results">
-      <div class="panel">
-        <h2 style="margin-top:0">Results</h2>
-        <div id="res-a"></div>
-        <div id="res-b"></div>
-        <div class="desc" id="detail">Pick a move to see the full calculation.</div>
-        <p class="muted small" style="margin-bottom:0">KO chances count damage only. They leave out Leftovers,
-          weather and hazard chip, and healing.</p>
+  <!-- the selected calculation, across the top -->
+  <section class="sc-result" id="main-result" aria-live="polite">
+    <div class="sc-result-main" id="result-text">Loading…</div>
+    <div class="sc-result-rolls" id="result-rolls"></div>
+  </section>
+
+  <div class="sc">
+    <section class="sc-panel" id="p1"></section>
+
+    <section class="sc-mid">
+      <div class="sc-movelists">
+        <div><div class="sc-h" id="moves-p1-title">Pokémon 1's moves</div><div id="moves-p1"></div></div>
+        <div><div class="sc-h" id="moves-p2-title">Pokémon 2's moves</div><div id="moves-p2"></div></div>
       </div>
-      <div class="panel" style="margin-top:1rem">
-        <h2 style="margin-top:0">Field</h2>
-        <div class="field-grid">
-          <label>Weather<br><select id="f-weather">
-            <option value="">None</option><option value="sun">Sun</option><option value="rain">Rain</option>
-            <option value="sand">Sandstorm</option><option value="snow">Snow</option><option value="hail">Hail</option>
-          </select></label>
-          <label>Terrain<br><select id="f-terrain">
-            <option value="">None</option><option value="electric">Electric</option><option value="grassy">Grassy</option>
-            <option value="psychic">Psychic</option><option value="misty">Misty</option>
-          </select></label>
-          <label>Format<br><select id="f-format"><option value="">Singles</option><option value="doubles">Doubles</option></select></label>
-          <label><input type="checkbox" id="f-gravity"> Gravity</label>
+      <p class="sc-note">Select a move to see the detailed result above.</p>
+
+      <div class="sc-box" id="field">
+        <div class="sc-h">Field</div>
+        <div class="sc-btnrow" data-key="format"><span>Format</span></div>
+        <div class="sc-btnrow" data-key="terrain"><span>Terrain</span></div>
+        <div class="sc-btnrow" data-key="weather"><span>Weather</span></div>
+        <label class="sc-check"><input type="checkbox" id="f-gravity"> Gravity</label>
+        <div class="sc-sides">
+          <div id="side-p1"></div>
+          <div id="side-p2"></div>
         </div>
       </div>
+
+      <p class="sc-note">Built on the game's own data: the Veil's starter variants, the reworked Illuminate and every
+        trainer's sets on Normal and Hard. The game has no EVs, so there are none here. KO chances include hazards,
+        Leftovers / Black Sludge and weather or status chip.</p>
     </section>
-    <section class="panel side" id="side-b"></section>
+
+    <section class="sc-panel" id="p2"></section>
   </div>
 </main>
 </body>

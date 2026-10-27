@@ -64,7 +64,7 @@
     const stats = {};
     STATS.forEach((s, i) => (stats[s] = calcStat(s, sp.bs[i], mon.ivs?.[s] ?? 31, 0, mon.level, mon.nature)));
     const maxHP = stats.hp;
-    const curHP = mon.curHP != null ? Math.min(mon.curHP, maxHP) : Math.max(1, Math.floor((maxHP * (mon.hpPct ?? 100)) / 100));
+    const curHP = mon.curHP != null ? Math.min(mon.curHP, maxHP) : Math.max(1, Math.round((maxHP * (mon.hpPct ?? 100)) / 100));
     return Object.assign({}, mon, { sp, types: mon.types || sp.types, stats, maxHP, curHP, boosts: mon.boosts || {},
       ability: mon.ability || "", item: mon.item || "", status: mon.status || "" });
   }
@@ -386,19 +386,67 @@
     return out;
   }
 
-  function koText(dist, hp, maxHits) {
+  // the chance to KO in n uses: hp is what's left after entry hazards; eot is the HP the target gains (Leftovers) or
+  // loses (weather, poison) between uses
+  function koText(dist, hp, maxHits, eot, after) {
     let acc = new Map([[0, 1]]);
+    const tail = after.length ? ` after ${after.join(" and ")}` : "";
     for (let n = 1; n <= maxHits; n++) {
-      acc = convolve(acc, dist, hp);
+      const need = hp + (n - 1) * eot;
+      if (need <= 0) return { n, chance: 1, text: `guaranteed ${n === 1 ? "OHKO" : n + "HKO"}${tail}` };
+      acc = convolve(acc, dist, Math.max(need, hp) + 100000);
       let p = 0;
-      for (const [d, q] of acc) if (d >= hp) p += q;
+      for (const [d, q] of acc) if (d >= need) p += q;
       if (p > 0) {
         const name = n === 1 ? "OHKO" : `${n}HKO`;
-        if (p >= 0.99999) return { n, chance: 1, text: `guaranteed ${name}` };
-        return { n, chance: p, text: `${p < 0.001 ? "<0.1" : (p * 100).toFixed(1)}% chance to ${name}` };
+        if (p >= 0.99999) return { n, chance: 1, text: `guaranteed ${name}${tail}` };
+        return { n, chance: p, text: `${p < 0.001 ? "<0.1" : (p * 100).toFixed(1)}% chance to ${name}${tail}` };
       }
     }
-    return { n: null, chance: 0, text: `takes ${maxHits + 1}+ hits to KO` };
+    return { n: null, chance: 0, text: `takes ${maxHits + 1}+ hits to KO${tail}` };
+  }
+
+  // entry hazards on the target's side, and what the end of each turn does to it
+  function chip(G, def, field) {
+    const side = field.defSide || {};
+    const after = [];
+    let hazard = 0, eot = 0;
+    const it = itemOf(G, def);
+    const guard = def.ability === "MAGIC_GUARD";
+    if (!guard && !(it && it.hold === "HEAVY_DUTY_BOOTS")) {
+      if (side.stealthRock) {
+        let e = 1;
+        for (const t of def.types) e *= CHART.ROCK[t] ?? 1;
+        hazard += Math.floor((def.maxHP * e) / 8); after.push("Stealth Rock");
+      }
+      const sp = +side.spikes || 0;
+      if (sp && grounded(G, def, field)) {
+        hazard += Math.floor(def.maxHP / [0, 8, 6, 4][Math.min(3, sp)]); after.push(`${sp} layer${sp > 1 ? "s" : ""} of Spikes`);
+      }
+    }
+    const w = field.weather;
+    if (!guard && w === "sand" && !def.types.some((t) => ["ROCK", "GROUND", "STEEL"].includes(t)) &&
+        !["SAND_VEIL", "SAND_RUSH", "SAND_FORCE", "OVERCOAT"].includes(def.ability) && !(it && it.hold === "SAFETY_GOGGLES")) {
+      eot -= Math.floor(def.maxHP / 16); after.push("sandstorm damage");
+    }
+    if (!guard && w === "hail" && !def.types.includes("ICE") && !["ICE_BODY", "SNOW_CLOAK", "OVERCOAT"].includes(def.ability)) {
+      eot -= Math.floor(def.maxHP / 16); after.push("hail damage");
+    }
+    if (def.ability === "ICE_BODY" && (w === "hail" || w === "snow")) { eot += Math.floor(def.maxHP / 16); after.push("Ice Body recovery"); }
+    if (def.ability === "RAIN_DISH" && w === "rain") { eot += Math.floor(def.maxHP / 16); after.push("Rain Dish recovery"); }
+    if (def.ability === "DRY_SKIN" && w === "rain") { eot += Math.floor(def.maxHP / 8); after.push("Dry Skin recovery"); }
+    if (it && it.hold === "LEFTOVERS") { eot += Math.floor(def.maxHP / 16); after.push("Leftovers recovery"); }
+    if (it && it.hold === "BLACK_SLUDGE") {
+      if (def.types.includes("POISON")) { eot += Math.floor(def.maxHP / 16); after.push("Black Sludge recovery"); }
+      else if (!guard) { eot -= Math.floor(def.maxHP / 8); after.push("Black Sludge damage"); }
+    }
+    if (field.grassyHeal && field.terrain === "grassy" && grounded(G, def, field)) { eot += Math.floor(def.maxHP / 16); after.push("Grassy Terrain recovery"); }
+    if (!guard && (def.status === "psn" || def.status === "tox")) {
+      if (def.ability === "POISON_HEAL") { eot += Math.floor(def.maxHP / 8); after.push("Poison Heal"); }
+      else { eot -= Math.floor(def.maxHP / (def.status === "tox" ? 16 : 8)); after.push(def.status === "tox" ? "toxic damage" : "poison damage"); }
+    }
+    if (!guard && def.status === "brn") { eot -= Math.floor(def.maxHP / 16); after.push("burn damage"); }
+    return { hazard, eot, after };
   }
 
   // ---- the whole calculation for one move
@@ -406,8 +454,11 @@
     opts = opts || {};
     field = field || {};
     const att = prepare(G, attIn), def = prepare(G, defIn);
-    const move = Object.assign({ key: moveKey }, G.moves[moveKey]);
     if (!G.moves[moveKey]) return null;
+    // (the panel's own power / type / category boxes, where they were changed)
+    const over = {};
+    for (const [k, v] of Object.entries(opts.override || {})) if (v !== "" && v != null) over[k] = k === "bp" ? +v : v;
+    const move = Object.assign({ key: moveKey }, G.moves[moveKey], over);
     att.tailwind = !!(field.attSide || {}).tailwind;
     def.tailwind = !!(field.defSide || {}).tailwind;
     const attSpe = speed(G, att, field), defSpe = speed(G, def, field);
@@ -426,7 +477,8 @@
     const max = hits.reduce((s, hr) => s + hr.rolls[15], 0);
     const first = hits[0];
     const pct = (d) => (100 * d) / def.maxHP;
-    const ko = first.eff === 0 ? { text: "no effect" } : koText(dist, def.curHP, 4);
+    const ch = chip(G, def, field);
+    const ko = first.eff === 0 ? { text: "no effect" } : koText(dist, Math.max(1, def.curHP - ch.hazard), 4, ch.eot, ch.after);
     const res = { move, att, def, hits, min, max, minPct: pct(min), maxPct: pct(max), ko, eff: first.eff, type: first.type,
       crit: first.crit, attSpe, defSpe, nHits: plan.length };
     if (move.recoil) res.recoil = [Math.floor((min * move.recoil) / 100), Math.floor((max * move.recoil) / 100)];
