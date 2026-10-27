@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title} - Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=JetBrains+Mono&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/site.js" defer></script>
+  <script src="assets/docs.js" defer></script>
+</head>
+<body>
+<main>
+  <h1>Documentation</h1>
+  <p class="lead">Everything in the game as it's built now. Each floor's details stay hidden until you open that
+    floor.</p>
+
+  <div class="tabs" role="tablist" id="tabs">
+    <button data-tab="changes" class="on">Changes from Emerald</button>
+    <button data-tab="trainers">Trainers</button>
+    <button data-tab="wild">Wild Pokémon</button>
+    <button data-tab="items">Items</button>
+    <button data-tab="shops">Shops &amp; trades</button>
+  </div>
+
+  <section id="tab-changes" class="prose">
+    <h2>The run</h2>
+    <ul>
+      <li><strong>Pokémon from outside can't be used.</strong> You begin the descent with an Egg found in the Veil.
+        It hatches into Chikorita, Tepig or Sobble, picked at random each run, as their Veil variants (below).</li>
+      <li><strong>One catch per area.</strong> Each upper and lower section, and each named place, allows one catch.
+        <em>Dupes clause:</em> a Pokémon from an evolution line you already own doesn't use it up. While the catch is
+        unused, the game re-rolls a duplicate line up to 8 times. Unown are the exception: no catch limit, no dupes
+        clause.</li>
+      <li><strong>Fainted means gone.</strong> A Pokémon that faints is lost for the rest of the run.</li>
+      <li><strong>Losing ends the run.</strong> A lost battle wipes the run and you land back at the start of the
+        Veil with a fresh team. Some things carry over between runs.</li>
+      <li><strong>Every Pokémon obeys you</strong>, whatever its level.</li>
+    </ul>
+
+    <h2>Levels and stats</h2>
+    <ul>
+      <li><strong>Level caps.</strong> EXP stops at the cap. The cap rises after each floor's boss:
+        <span id="caps" class="mono"></span>.</li>
+      <li><strong>The Candy Jar</strong> takes a Pokémon straight to the current cap. It learns its moves and evolves
+        on the way, and the jar never runs out. There are no Rare Candies in the game.</li>
+      <li><strong>No EVs.</strong> Effort values are off for everyone. Stats come from level, base stats, IVs and
+        nature.</li>
+      <li><strong>Trainers</strong> have perfect IVs (31 in every stat) on both difficulties.</li>
+    </ul>
+
+    <h2>Normal and Hard</h2>
+    <p>You choose a difficulty at the start of the game. Both use the same rebuilt battle AI: it reads your team,
+      switches smartly and won't throw away its moves. Hard changes the teams:</p>
+    <ul>
+      <li>one more Pokémon per team (up to six), chosen for the team's plan;</li>
+      <li>held items on almost every Pokémon. On Floors 1-2, only the floor bosses hold Life Orb, Choice items,
+        Leftovers, Black Sludge, Expert Belt or Assault Vest;</li>
+      <li>stronger moves (to 80 power on Floor 1, more on later floors), never trading away a move a Pokémon's
+        ability relies on;</li>
+      <li>the ace (the last Pokémon) a level or two higher.</li>
+    </ul>
+    <p>The <a href="#" data-goto="trainers">Trainers</a> tab shows both versions of every team.</p>
+
+    <h2>Out of battle</h2>
+    <ul>
+      <li>Running Shoes from the start; the Portable PC once you enter the Veil. L opens the Key Items menu.</li>
+      <li>The Smoke Ball always gets you away from a wild battle.</li>
+      <li>Dig and Teleport don't work as escape moves outside battle. Berries can't be planted.</li>
+    </ul>
+
+    <h2>Changed Pokémon</h2>
+    <p>The three starter lines are Veil variants. Every other Pokémon keeps its standard types, abilities and
+      stats.</p>
+    <div class="table-wrap"><table id="species-changes"><thead><tr><th>Pokémon</th><th>Type</th><th>Abilities</th>
+      <th>Base stats (HP / Atk / Def / SpA / SpD / Spe)</th></tr></thead><tbody></tbody></table></div>
+
+    <h2>New and reworked abilities</h2>
+    <div class="table-wrap"><table id="ability-changes"><thead><tr><th>Ability</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Illuminate</strong> (reworked)</td><td>On entry, lowers the foes' Sp. Atk by one stage, the
+          way Intimidate lowers Attack. Anything that blocks Intimidate blocks it too. Every Pokémon with Illuminate
+          gets the new effect.</td></tr>
+        <tr><td><strong>Cinder Shards</strong> (new)</td><td>When hit by a special move, scatters a layer of Spikes on
+          the attacker's side.</td></tr>
+        <tr><td><strong>Ambush</strong> (new)</td><td>If it moves before its target, its first damaging move after
+          switching in has 1.2x power.</td></tr>
+      </tbody></table></div>
+  </section>
+
+  <section id="tab-trainers" hidden>
+    <div class="toolbar">
+      <div class="seg" id="floor-trainers"></div>
+      <div class="seg" id="diff">
+        <button data-diff="normal" class="on">Normal</button><button data-diff="hard">Hard</button>
+      </div>
+    </div>
+    <div id="trainers-body"></div>
+  </section>
+
+  <section id="tab-wild" hidden>
+    <div class="toolbar"><div class="seg" id="floor-wild"></div></div>
+    <div id="wild-body"></div>
+  </section>
+
+  <section id="tab-items" hidden>
+    <div class="toolbar"><div class="seg" id="floor-items"></div></div>
+    <div id="items-body"></div>
+  </section>
+
+  <section id="tab-shops" hidden>
+    <div id="shops-body"></div>
+  </section>
+</main>
+</body>
+</html>

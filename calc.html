@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title} - Damage Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=JetBrains+Mono&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/site.js" defer></script>
+  <script src="assets/calc-engine.js" defer></script>
+  <script src="assets/calc.js" defer></script>
+</head>
+<body>
+<main>
+  <h1>Damage Calculator</h1>
+  <p class="lead">Built on the game's own data: the Veil's starter variants, the reworked Illuminate, every trainer's
+    team on Normal and Hard. There are no EVs in the game, so there are none here.</p>
+
+  <datalist id="dl-species"></datalist>
+  <datalist id="dl-moves"></datalist>
+  <datalist id="dl-abilities"></datalist>
+
+  <div class="calc">
+    <section class="panel side" id="side-a"></section>
+    <section class="results">
+      <div class="panel">
+        <h2 style="margin-top:0">Results</h2>
+        <div id="res-a"></div>
+        <div id="res-b"></div>
+        <div class="desc" id="detail">Pick a move to see the full calculation.</div>
+        <p class="muted small" style="margin-bottom:0">KO chances count damage only. They leave out Leftovers,
+          weather and hazard chip, and healing.</p>
+      </div>
+      <div class="panel" style="margin-top:1rem">
+        <h2 style="margin-top:0">Field</h2>
+        <div class="field-grid">
+          <label>Weather<br><select id="f-weather">
+            <option value="">None</option><option value="sun">Sun</option><option value="rain">Rain</option>
+            <option value="sand">Sandstorm</option><option value="snow">Snow</option><option value="hail">Hail</option>
+          </select></label>
+          <label>Terrain<br><select id="f-terrain">
+            <option value="">None</option><option value="electric">Electric</option><option value="grassy">Grassy</option>
+            <option value="psychic">Psychic</option><option value="misty">Misty</option>
+          </select></label>
+          <label>Format<br><select id="f-format"><option value="">Singles</option><option value="doubles">Doubles</option></select></label>
+          <label><input type="checkbox" id="f-gravity"> Gravity</label>
+        </div>
+      </div>
+    </section>
+    <section class="panel side" id="side-b"></section>
+  </div>
+</main>
+</body>
+</html>
