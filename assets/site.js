@@ -73,7 +73,8 @@ function spriteURL(key) {
 }
 function sprite(key, cls) {
   const img = h("img", { src: spriteURL(key), alt: "", loading: "lazy", class: cls || null, width: 48, height: 48 });
-  img.onerror = () => { img.onerror = null; img.src = spriteURL(String(key).split("_")[0]); };
+  // (a form without its own sprite falls back to the base form; no sprite at all leaves the space blank)
+  img.onerror = () => { img.onerror = () => { img.style.visibility = "hidden"; }; img.src = spriteURL(String(key).split("_")[0]); };
   return img;
 }
 
