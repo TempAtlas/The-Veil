@@ -195,6 +195,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .sc-ibtn:hover, .sc-ibtn:focus-visible { border-color: var(--accent-dim); }
 .sc-ibtn.on { border-color: var(--accent); background: var(--accent-dim); }
 .sc-ibtn.empty { opacity: .25; cursor: default; }
+.sc-ibtn[draggable="true"] { cursor: grab; }
+.sc-ibtn.dragging { opacity: .4; }
+.sc-ibtn.over { border-color: var(--accent); opacity: 1; background: var(--accent-dim); }
+.sc-hint { font-weight: 400; color: var(--faint); }
 .sc-icons { display: flex; flex-wrap: wrap; gap: 3px; }
 .sc-grid { display: grid; grid-template-columns: repeat(6, 44px); gap: 3px; }
 .sc-team .sc-row2 { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; margin: .35rem 0; }
@@ -222,6 +226,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 }
 .sc-panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: .7rem .8rem; }
 .sc-panel-head { display: flex; justify-content: space-between; align-items: baseline; }
+.sc-panel-head-r { justify-content: flex-end; margin-bottom: -.2rem; }
 .sc-h { color: var(--gold); font-weight: 800; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .35rem; }
 .sc-sub { color: var(--muted); font-weight: 700; font-size: .78rem; margin-bottom: .25rem; }
 .sc-pick { display: flex; gap: .5rem; align-items: center; margin-bottom: .4rem; }

@@ -134,7 +134,8 @@ function renderPanel(id) {
   });
 
   root.replaceChildren(...[
-    h("div", { class: "sc-panel-head" }, h("div", { class: "sc-h" }, label(id)), h("span", { class: "muted small" }, `Speed ${spe}`)),
+    // (2026-10-29, the author: no "Pokémon 1" / "Pokémon 2" heading - the panel's own Pokémon names it)
+    h("div", { class: "sc-panel-head sc-panel-head-r" }, h("span", { class: "muted small" }, `Speed ${spe}`)),
     h("div", { class: "sc-pick" }, sprite(m.species, "sc-sprite"), search),
     ...rows,
     h("div", { class: "sc-stats" }, stats),
@@ -296,14 +297,56 @@ function renderMine() {
   }
   const boxes = MINE.save.boxes;
   const box = boxes[MINE.box] || { mons: [] };
+  // (2026-10-29, the author: drag Pokémon between the box and the party) every slot takes a drop: the two swap
+  const party = [...MINE.save.party, ...Array(6).fill(null)].slice(0, 6);
+  const slot = (s, where, i) => {
+    const el = s ? btn(s) : h("span", { class: "sc-ibtn empty", "aria-label": "Empty slot" },
+      h("span", { class: "sc-icon", style: "background:none" }));
+    if (s) {
+      el.draggable = true;
+      el.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("application/x-veil-slot", JSON.stringify({ where, box: MINE.box, i }));
+        e.dataTransfer.effectAllowed = "move";
+        el.classList.add("dragging");
+      });
+      el.addEventListener("dragend", () => el.classList.remove("dragging"));
+    }
+    el.addEventListener("dragover", (e) => {
+      if (![...e.dataTransfer.types].includes("application/x-veil-slot")) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = "move"; el.classList.add("over");
+    });
+    el.addEventListener("dragleave", () => el.classList.remove("over"));
+    el.addEventListener("drop", (e) => {
+      const raw = e.dataTransfer.getData("application/x-veil-slot");
+      if (!raw) return;
+      e.preventDefault(); e.stopPropagation();
+      moveMon(JSON.parse(raw), { where, box: MINE.box, i });
+    });
+    return el;
+  };
   root.replaceChildren(head,
-    h("div", { class: "sc-sub muted small" }, "Party"),
-    h("div", { class: "sc-icons" }, MINE.save.party.map(btn)),
+    h("div", { class: "sc-sub muted small" }, "Party ", h("span", { class: "sc-hint" }, "· drag to move between the party and boxes")),
+    h("div", { class: "sc-icons" }, party.map((s, i) => slot(s, "party", i))),
     h("div", { class: "sc-row2" }, h("span", { class: "muted small" }, "Box"),
       sel("mine-box", boxes.map((b, i) => [i, `${b.name} (${b.mons.filter(Boolean).length})`]), MINE.box,
         (v) => { MINE.box = +v; renderMine(); })),
-    h("div", { class: "sc-grid" }, box.mons.map((s) => s ? btn(s)
-      : h("span", { class: "sc-ibtn empty", "aria-hidden": "true" }, h("span", { class: "sc-icon", style: "background:none" })))));
+    h("div", { class: "sc-grid" }, box.mons.map((s, i) => slot(s, "box", i))));
+}
+
+// a dragged Pokémon onto another slot: the two trade places (the party closes up; it never empties)
+function moveMon(from, to) {
+  const sv = MINE.save;
+  const party = [...sv.party, ...Array(6).fill(null)].slice(0, 6);
+  const get = (p) => (p.where === "party" ? party[p.i] : sv.boxes[p.box].mons[p.i]);
+  const put = (p, v) => { if (p.where === "party") party[p.i] = v; else sv.boxes[p.box].mons[p.i] = v; };
+  if (from.where === to.where && from.i === to.i && from.box === to.box) return;
+  const a = get(from), b = get(to);
+  put(to, a); put(from, b);
+  const next = party.filter(Boolean);
+  if (!next.length) { put(from, a); put(to, b); return; }          // (the last one can't leave the party)
+  sv.party = next;
+  store("calc:save", sv);
+  renderMine();
 }
 
 function dropAnywhere() {
