@@ -35,7 +35,7 @@ function chrome() {
     h("div", { class: "inner" }, h("a", { class: "brand", href: "index.html" }, SITE.title), nav)));
   document.body.append(h("footer", { class: "site-footer" },
     `${SITE.title} is a fan-made ROM hack, not affiliated with Nintendo, Game Freak or The Pokémon Company. `,
-    "No ROMs are hosted here. Pokémon sprites from Pokémon Showdown."));
+    "No ROMs are hosted here. Pokémon sprites from Pokémon Showdown; party icons from the game's own graphics."));
   document.querySelectorAll("[data-title]").forEach((el) => (el.textContent = SITE.title));
   document.title = document.title.replace("{title}", SITE.title);
 }

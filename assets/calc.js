@@ -1,12 +1,17 @@
 // The damage calculator page, laid out like Pokémon Showdown's calculator: Pokémon 1 | moves, results and field |
-// Pokémon 2, with the selected result across the top. The maths is in calc-engine.js.
-let G, T;
+// Pokémon 2, with the selected result across the top. The maths is in calc-engine.js. Above Pokémon 1: your party and
+// PC boxes from your save (save.js, read in the browser); above Pokémon 2: the opponents, area by area.
+let G, T, D;
 const C = () => window.VeilCalc;
 const P = {};                     // "p1" / "p2" -> panel state
 let selected = ["p1", 0];
-const FIELD = { format: "", terrain: "", weather: "", gravity: false };
-const SIDE = { p1: { stealthRock: false, spikes: 0, reflect: false, lightScreen: false, auroraVeil: false, helpingHand: false, tailwind: false },
-  p2: { stealthRock: false, spikes: 0, reflect: false, lightScreen: false, auroraVeil: false, helpingHand: false, tailwind: false } };
+const FIELD = { format: "", terrain: "", weather: "", gravity: false, magicRoom: false, wonderRoom: false };
+// each side's conditions (the attacker's: Helping Hand, Battery, Power Spot, Steely Spirit, Charge, Flower Gift; the
+// target's: hazards, screens, Friend Guard, Flower Gift, Foresight)
+const sideDefaults = () => ({ stealthRock: false, spikes: 0, reflect: false, lightScreen: false, auroraVeil: false,
+  helpingHand: false, tailwind: false, battery: false, powerSpot: false, steelySpirit: false, charge: false,
+  flowerGift: false, friendGuard: false, foresight: false });
+const SIDE = { p1: sideDefaults(), p2: sideDefaults() };
 
 const SETS = new Map();           // datalist label -> {species} or a trainer set
 const nameToMove = new Map(), nameToAbility = new Map();
@@ -22,7 +27,9 @@ function blankMon(species) {
 }
 function fromSet(set) {
   return Object.assign(blankMon(set.species), { level: set.level, nature: set.nature, ability: set.ability,
-    item: set.item || "", moves: [...set.moves, "", "", "", ""].slice(0, 4), setLabel: set.label || null });
+    item: set.item || "", moves: [...set.moves, "", "", "", ""].slice(0, 4), setLabel: set.label || null,
+    // (a trainer's set remembers whose it is: the finder lights it, Normal / Hard swaps it)
+    tid: set.tid || null, idx: set.idx ?? null, diff: set.diff || null, floor: set.floor || null });
 }
 
 // ------------------------------------------------------------------------------------------------- a panel
@@ -46,6 +53,8 @@ function renderPanel(id) {
       const hit = SETS.get(e.target.value);
       if (!hit) return;
       P[id].mon = hit.moves ? fromSet(hit) : Object.assign(blankMon(hit.species), { level: m.level });
+      if (id === "p2") { followTrainer(P.p2.mon); renderFinder(); }
+      if (id === "p1") renderMine();
       renderPanel(id); update();
     } });
 
@@ -163,13 +172,21 @@ function renderField() {
       h("div", { class: "sc-check" }, "Spikes ", h("span", { class: "seg sc-seg" }, [0, 1, 2, 3].map((n) =>
         h("button", { class: s.spikes === n ? "on" : null, onclick: () => { s.spikes = n; renderField(); update(); } }, n)))),
       tog("reflect", "Reflect"), tog("lightScreen", "Light Screen"), tog("auroraVeil", "Aurora Veil"),
-      tog("helpingHand", "Helping Hand"), tog("tailwind", "Tailwind"));
+      tog("helpingHand", "Helping Hand"), tog("tailwind", "Tailwind"),
+      tog("battery", "Ally's Battery"), tog("powerSpot", "Ally's Power Spot"), tog("steelySpirit", "Ally's Steely Spirit"),
+      tog("friendGuard", "Ally's Friend Guard"), tog("flowerGift", "Flower Gift"), tog("charge", "Charge"),
+      tog("foresight", "Foresight (on it)"));
+  }
+  for (const [key, text] of [["magicRoom", "Magic Room"], ["wonderRoom", "Wonder Room"]]) {
+    const el = document.getElementById(`f-${key}`);
+    if (el) el.checked = FIELD[key];
   }
 }
 
 // ------------------------------------------------------------------------------------------------ results
 function field() {
-  return { weather: FIELD.weather, terrain: FIELD.terrain, doubles: FIELD.format === "doubles", gravity: FIELD.gravity };
+  return { weather: FIELD.weather, terrain: FIELD.terrain, doubles: FIELD.format === "doubles", gravity: FIELD.gravity,
+    magicRoom: FIELD.magicRoom, wonderRoom: FIELD.wonderRoom };
 }
 
 function runCalc(attId, i) {
@@ -217,13 +234,258 @@ function mainResult() {
 function update() { moveList("p1"); moveList("p2"); mainResult(); }
 
 function findTrainer(tid) {
-  for (const f of T.floors) for (const p of f.places) for (const t of p.trainers) if (t.id === tid) return { t, floor: f.floor };
+  for (const f of T.floors) for (const p of f.places) for (const t of p.trainers) if (t.id === tid) return { t, floor: f.floor, place: p.place };
   return null;
+}
+
+// ------------------------------------------------------------------------------------------ party icons
+// the game's own menu icons (assets/icons.png, build_site_data.py): 32 to a row, 32 x 32 each, by the species' cell
+function icon(species) {
+  // (a form with no icon of its own - Pikachu's costumes - shows its base form's)
+  const n = G.species[species]?.icon ?? G.species[String(species).split("_")[0]]?.icon;
+  if (n == null) return h("span", { class: "sc-icon", style: "background:none" });
+  return h("span", { class: "sc-icon", style: `background-position:-${(n % 32) * 32}px -${Math.floor(n / 32) * 32}px` });
+}
+function iconButton(species, tip, on, onclick) {
+  return h("button", { class: "sc-ibtn" + (on ? " on" : ""), title: tip, "aria-label": tip, onclick }, icon(species));
+}
+const setTip = (s) => `${s.nickname && s.nickname !== G.species[s.species]?.name ? s.nickname + " - " : ""}${G.species[s.species]?.name} Lv ${s.level}`
+  + (s.item ? ` @ ${G.items[s.item]?.name || s.item}` : "") + (s.moves?.length ? `\n${s.moves.map((m) => G.moves[m]?.name || m).join(", ")}` : "");
+
+// ------------------------------------------------------------------------------- your Pokémon (the save)
+const MINE = { save: null, box: 0, error: "" };     // save: { party, boxes } (save.js), kept in this browser
+
+function fromSaveMon(s) {
+  return Object.assign(blankMon(s.species), { level: s.level, nature: s.nature, ability: s.ability, item: s.item || "",
+    ivs: Object.assign({}, s.ivs), moves: [...s.moves, "", "", "", ""].slice(0, 4), hpPct: s.hpPct || 100,
+    setLabel: `${s.nickname || G.species[s.species].name} (your ${G.species[s.species].name})`, mine: s });
+}
+
+function loadSaveFile(file) {
+  if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      MINE.save = window.VeilSave.read(rd.result, G);
+      MINE.error = "";
+      MINE.box = Math.max(0, MINE.save.boxes.findIndex((b) => b.mons.some(Boolean)));
+      store("calc:save", MINE.save);
+      if (MINE.save.party[0]) { P.p1.mon = fromSaveMon(MINE.save.party[0]); renderPanel("p1"); update(); }
+    } catch (e) { MINE.error = e.message; }
+    renderMine();
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+function renderMine() {
+  const root = document.getElementById("mine");
+  const pick = () => document.getElementById("save-file").click();
+  const cur = P.p1?.mon?.mine;
+  const btn = (s) => iconButton(s.species, setTip(s), cur && JSON.stringify(cur) === JSON.stringify(s), () => {
+    P.p1.mon = fromSaveMon(s); renderPanel("p1"); renderMine(); update();
+  });
+  const head = h("div", { class: "sc-panel-head" }, h("div", { class: "sc-h" }, "Your Pokémon"),
+    h("span", {}, h("button", { class: "sc-mini", onclick: pick }, "Import .sav"),
+      MINE.save ? h("button", { class: "sc-mini", onclick: () => { MINE.save = null; store("calc:save", null); renderMine(); } }, "Clear") : null));
+  if (!MINE.save) {
+    root.replaceChildren(...[head, h("div", { class: "sc-drop", id: "save-drop", onclick: pick, role: "button", tabindex: 0 },
+      "Drop your save file here (or anywhere on the page) to load your party and PC boxes. ",
+      h("span", { class: "muted" }, "It's read in your browser and never uploaded.")),
+      MINE.error ? h("div", { class: "small", style: "color:var(--bad);margin-top:.3rem" }, MINE.error) : null].filter(Boolean));
+    return;
+  }
+  const boxes = MINE.save.boxes;
+  const box = boxes[MINE.box] || { mons: [] };
+  root.replaceChildren(head,
+    h("div", { class: "sc-sub muted small" }, "Party"),
+    h("div", { class: "sc-icons" }, MINE.save.party.map(btn)),
+    h("div", { class: "sc-row2" }, h("span", { class: "muted small" }, "Box"),
+      sel("mine-box", boxes.map((b, i) => [i, `${b.name} (${b.mons.filter(Boolean).length})`]), MINE.box,
+        (v) => { MINE.box = +v; renderMine(); })),
+    h("div", { class: "sc-grid" }, box.mons.map((s) => s ? btn(s)
+      : h("span", { class: "sc-ibtn empty", "aria-hidden": "true" }, h("span", { class: "sc-icon", style: "background:none" })))));
+}
+
+function dropAnywhere() {
+  const veil = document.getElementById("dropveil");
+  let depth = 0;
+  const isFile = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+  document.addEventListener("dragenter", (e) => { if (isFile(e)) { depth++; veil.hidden = false; } });
+  document.addEventListener("dragleave", () => { if (--depth <= 0) { depth = 0; veil.hidden = true; } });
+  document.addEventListener("dragover", (e) => { if (isFile(e)) e.preventDefault(); });
+  document.addEventListener("drop", (e) => {
+    if (!isFile(e)) return;
+    e.preventDefault(); depth = 0; veil.hidden = true;
+    loadSaveFile(e.dataTransfer.files[0]);
+  });
+  document.getElementById("save-file").addEventListener("change", (e) => { loadSaveFile(e.target.files[0]); e.target.value = ""; });
+}
+
+// ----------------------------------------------------------------------------- the opponents, by area
+const FIND = { floor: 1, area: "", diff: "normal" };
+
+function areasOf(floor) {
+  const f = T.floors.find((x) => x.floor === floor);
+  const wild = D.encounters.find((x) => x.floor === floor);
+  return [...(f ? f.places.map((p) => ({ kind: "trainers", name: p.place, place: p })) : []),
+    ...(wild ? wild.areas.map((a) => ({ kind: "wild", name: a.area, area: a })) : [])];
+}
+
+function trainerSet(t, d, i, floor) {
+  const set = t[d][i];
+  return Object.assign({}, set, { label: `${G.species[set.species].name} (${t.title}, F${floor} ${d === "hard" ? "Hard" : "Normal"})`,
+    tid: t.id, idx: i, diff: d, floor });
+}
+
+function renderFinder() {
+  const root = document.getElementById("finder");
+  const floors = T.floors.map((f) => f.floor);
+  const areas = areasOf(FIND.floor);
+  if (!areas.some((a) => a.kind + ":" + a.name === FIND.area)) FIND.area = areas[0] ? areas[0].kind + ":" + areas[0].name : "";
+  const area = areas.find((a) => a.kind + ":" + a.name === FIND.area);
+  const cur = P.p2?.mon;
+  const list = [];
+  if (area?.kind === "trainers") {
+    for (const t of area.place.trainers) {
+      const team = t[FIND.diff] || t.normal;
+      list.push(h("div", { class: "sc-trainer" + (cur?.tid === t.id ? " on" : "") },
+        h("div", { class: "sc-tname" }, t.title, t.double ? h("span", { class: "muted" }, " · double") : null),
+        h("div", { class: "sc-icons" }, team.map((s, i) => iconButton(s.species, setTip(s),
+          cur?.tid === t.id && cur?.idx === i, () => { P.p2.mon = fromSet(trainerSet(t, FIND.diff, i, FIND.floor)); renderPanel("p2"); renderFinder(); update(); })))));
+    }
+  } else if (area?.kind === "wild") {
+    const lv = area.area.levels[1];
+    for (const [key, title] of [["land", "Walking"], ["surf", "Surfing"], ["fishing", "Fishing"]]) {
+      const slots = area.area[key] || [];
+      if (!slots.length) continue;
+      const seen = new Set();
+      list.push(h("div", { class: "sc-trainer" }, h("div", { class: "sc-tname" }, title,
+        h("span", { class: "muted" }, ` · Lv ${area.area.levels[0]}-${lv}`)),
+        h("div", { class: "sc-icons" }, slots.filter((s) => !seen.has(s.species) && seen.add(s.species)).map((s) =>
+          iconButton(s.species, `${s.name} Lv ${lv} (${s.rate}%)`, cur?.wild === s.species, () => {
+            P.p2.mon = Object.assign(blankMon(s.species), { level: lv, wild: s.species, setLabel: `${s.name} (wild, ${area.name})` });
+            renderPanel("p2"); renderFinder(); update();
+          })))));
+    }
+  }
+  root.replaceChildren(
+    h("div", { class: "sc-panel-head" }, h("div", { class: "sc-h" }, "Opponents"),
+      h("span", { class: "seg sc-seg" }, [["normal", "Normal"], ["hard", "Hard"]].map(([v, text]) =>
+        h("button", { class: FIND.diff === v ? "on" : null, onclick: () => { FIND.diff = v; switchDiff(); renderFinder(); } }, text)))),
+    h("div", { class: "sc-row2" },
+      sel("find-floor", floors.map((f) => [f, `Floor ${f}`]), FIND.floor, (v) => { FIND.floor = +v; FIND.area = ""; renderFinder(); }),
+      h("select", { id: "find-area", onchange: (e) => { FIND.area = e.target.value; renderFinder(); } },
+        ["trainers", "wild"].map((kind) => {
+          const opts = areas.filter((a) => a.kind === kind);
+          return opts.length ? h("optgroup", { label: kind === "trainers" ? "Trainers" : "Wild Pokémon" }, opts.map((a) =>
+            h("option", { value: a.kind + ":" + a.name, selected: a.kind + ":" + a.name === FIND.area ? true : null }, a.name))) : null;
+        }))),
+    h("div", { class: "sc-area-list" }, list.length ? list : h("div", { class: "muted small" }, "Nobody here.")));
+  store("calc:find", FIND);
+}
+
+// Normal <-> Hard: the opponent's Pokémon becomes the same trainer's Pokémon on the other difficulty
+function switchDiff() {
+  const m = P.p2.mon;
+  if (!m.tid) return;
+  const found = findTrainer(m.tid);
+  const team = found?.t[FIND.diff];
+  if (!team || !team.length) return;
+  const i = Math.min(m.idx || 0, team.length - 1);
+  P.p2.mon = fromSet(trainerSet(found.t, FIND.diff, i, found.floor));
+  renderPanel("p2"); update();
+}
+
+// the finder follows a trainer's set picked from the search box
+function followTrainer(m) {
+  if (!m?.tid) return;
+  const found = findTrainer(m.tid);
+  if (!found) return;
+  FIND.floor = found.floor; FIND.area = "trainers:" + found.place; FIND.diff = m.diff || FIND.diff;
+}
+
+// ------------------------------------------------------------------------ Showdown text: import / export
+// "Nickname (Species) @ Item / Ability: X / Level: N / Jolly Nature / IVs: 0 Atk / - Move"
+const norm = (s) => String(s).toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g, "");
+let BYNAME = null;
+function byName() {
+  if (BYNAME) return BYNAME;
+  const mk = (obj, extra) => {
+    const m = new Map();
+    for (const [k, v] of Object.entries(obj)) { m.set(norm(v.name || v), k); m.set(norm(k), k); }
+    return Object.assign(m, extra || {});
+  };
+  BYNAME = { species: mk(G.species), moves: mk(G.moves), items: mk(G.items), abilities: mk(G.abilities) };
+  // (Showdown writes forms "Growlithe-Hisui"; the game "Growlithe (Hisui)" - both reduce to the same letters)
+  return BYNAME;
+}
+const IV_LABEL = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
+
+function exportSet(m) {
+  const sp = G.species[m.species];
+  const lines = [`${m.mine?.nickname ? `${m.mine.nickname} (${sp.name})` : sp.name}${m.item ? ` @ ${G.items[m.item]?.name || m.item}` : ""}`];
+  if (m.ability) lines.push(`Ability: ${G.abilities[m.ability]?.name || m.ability}`);
+  lines.push(`Level: ${m.level}`);
+  lines.push(`${m.nature} Nature`);
+  const ivs = Object.keys(IV_LABEL).filter((k) => m.ivs[k] !== 31).map((k) => `${m.ivs[k]} ${IV_LABEL[k]}`);
+  if (ivs.length) lines.push(`IVs: ${ivs.join(" / ")}`);
+  for (const mv of m.moves) if (mv) lines.push(`- ${G.moves[mv]?.name || mv}`);
+  return lines.join("\n");
+}
+
+function importSet(text) {
+  const N = byName();
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) throw new Error("Paste a set first.");
+  let [head, item] = lines[0].split(" @ ");
+  head = head.replace(/\s*\((M|F)\)\s*$/, "");
+  const inner = head.match(/\(([^)]+)\)\s*$/);
+  const speciesName = inner && N.species.has(norm(inner[1])) ? inner[1] : head;
+  const species = N.species.get(norm(speciesName));
+  if (!species) throw new Error(`"${speciesName}" isn't a Pokémon in the game.`);
+  const m = blankMon(species);
+  if (item) { const it = N.items.get(norm(item)); if (it) m.item = it; }
+  const moves = [];
+  for (const l of lines.slice(1)) {
+    let r;
+    if ((r = l.match(/^Ability:\s*(.+)$/i))) { const a = N.abilities.get(norm(r[1])); if (a) m.ability = a; }
+    else if ((r = l.match(/^Level:\s*(\d+)/i))) m.level = clamp(+r[1], 1, 100);
+    else if ((r = l.match(/^(\w+)\s+Nature/i))) { const n = Object.keys(C().NATURES).find((x) => norm(x) === norm(r[1])); if (n) m.nature = n; }
+    else if ((r = l.match(/^IVs:\s*(.+)$/i))) {
+      for (const part of r[1].split("/")) {
+        const [v, lab] = part.trim().split(/\s+/);
+        const k = Object.keys(IV_LABEL).find((x) => norm(IV_LABEL[x]) === norm(lab));
+        if (k) m.ivs[k] = clamp(+v, 0, 31);
+      }
+    } else if ((r = l.match(/^[-~]\s*(.+)$/))) { const mv = N.moves.get(norm(r[1].replace(/\[.*\]/, ""))); if (mv) moves.push(mv); }
+  }
+  m.moves = [...moves, "", "", "", ""].slice(0, 4);
+  return m;
+}
+
+function renderIO() {
+  const root = document.getElementById("io");
+  if (!root) return;
+  const ta = h("textarea", { id: "io-text", "aria-label": "Set text (Showdown format)", spellcheck: "false",
+    placeholder: "Paste a set in Showdown's format, or export one here." });
+  const msg = h("div", { class: "sc-msg muted" });
+  const doImport = (id) => {
+    try { P[id].mon = importSet(ta.value); msg.textContent = `Imported as ${label(id)}.`; renderPanel(id); update(); }
+    catch (e) { msg.textContent = e.message; }
+  };
+  root.replaceChildren(h("div", { class: "sc-h" }, "Import / Export"), ta,
+    h("div", { class: "sc-btns" },
+      h("button", { class: "sc-mini", onclick: () => doImport("p1") }, "Import as Pokémon 1"),
+      h("button", { class: "sc-mini", onclick: () => doImport("p2") }, "Import as Pokémon 2"),
+      h("button", { class: "sc-mini", onclick: () => { ta.value = exportSet(P.p1.mon); msg.textContent = ""; } }, "Export Pokémon 1"),
+      h("button", { class: "sc-mini", onclick: () => { ta.value = exportSet(P.p2.mon); msg.textContent = ""; } }, "Export Pokémon 2"),
+      h("button", { class: "sc-mini", onclick: () => document.getElementById("save-file").click() }, "Import .sav")),
+    msg);
 }
 
 // ------------------------------------------------------------------------------------------------- start
 async function init() {
-  [G, T] = await Promise.all([loadJSON("game.json"), loadJSON("trainers.json")]);
+  [G, T, D] = await Promise.all([loadJSON("game.json"), loadJSON("trainers.json"), loadJSON("docs.json")]);
   const dls = document.getElementById("dl-sets");
   for (const [k, sp] of Object.entries(G.species)) {
     const n = SETS.has(sp.name) ? `${sp.name} [${k}]` : sp.name;
@@ -238,7 +500,7 @@ async function init() {
         const name = G.species[set.species]?.name || set.species;
         let lab = `${name} (${t.title}, F${f.floor} ${d === "hard" ? "Hard" : "Normal"})`;
         if (SETS.has(lab)) lab += ` #${i + 1}`;
-        SETS.set(lab, Object.assign({}, set, { label: lab }));
+        SETS.set(lab, Object.assign({}, set, { label: lab, tid: t.id, idx: i, diff: d, floor: f.floor }));
         dls.append(h("option", { value: lab }));
       });
     }
@@ -259,10 +521,20 @@ async function init() {
     const found = findTrainer(q.get("t"));
     const d = q.get("d") === "hard" ? "hard" : "normal";
     const set = found?.t[d]?.[+q.get("i") || 0];
-    if (set) P.p2.mon = fromSet(Object.assign({}, set, { label: `${G.species[set.species].name} (${found.t.title}, F${found.floor} ${d === "hard" ? "Hard" : "Normal"})` }));
+    if (set) P.p2.mon = fromSet(trainerSet(found.t, d, +q.get("i") || 0, found.floor));
   }
-  document.getElementById("f-gravity").addEventListener("change", (e) => { FIELD.gravity = e.target.checked; update(); });
+  // what this browser remembers: the save it was given, where the finder was
+  const saved = store("calc:save");
+  if (saved && Array.isArray(saved.party) && Array.isArray(saved.boxes)) MINE.save = saved;
+  MINE.box = Math.max(0, (MINE.save?.boxes || []).findIndex((b) => b.mons.some(Boolean)));
+  const f = store("calc:find");
+  if (f && T.floors.some((x) => x.floor === f.floor)) Object.assign(FIND, f);
+  followTrainer(P.p2.mon);
+  for (const key of ["gravity", "magicRoom", "wonderRoom"]) {
+    document.getElementById(`f-${key}`).addEventListener("change", (e) => { FIELD[key] = e.target.checked; update(); });
+  }
   renderField(); renderPanel("p1"); renderPanel("p2");
+  renderMine(); renderFinder(); renderIO(); dropAnywhere();
   update();
 }
 document.addEventListener("DOMContentLoaded", () => init().catch((e) => {

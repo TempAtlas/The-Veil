@@ -16,9 +16,11 @@ Everything under `data/` is generated from the game's source tree by the build r
 python3 tools/scripts/build_site_data.py <path to this repo>/data
 ```
 
-Run it inside WSL, from the game repo. It writes `game.json` (species, moves, abilities, items, level caps),
+Run it inside WSL, from the game repo. It writes `game.json` (species, moves, abilities, items, level caps, and what
+the calculator needs to read a save: the numbers a save stores, each species' ability slots and growth rate),
 `trainers.json` (every team on Normal and Hard) and `docs.json` (encounters, items, shops, trades, and the species
-that differ from the expansion the game is built on).
+that differ from the expansion the game is built on). It also draws `assets/icons.png`, every species' party icon
+from the game's own graphics and icon palettes.
 
 ## Previewing locally
 
@@ -37,7 +39,15 @@ node tests/engine.test.js
 ```
 
 This checks the damage engine against figures worked out by hand: stats, rolls, immunities, Skill Link,
-Technician, crits, screens, Eviolite, Weather Ball, Low Kick, and the Veil's retyped starters.
+Technician, crits, screens, Eviolite, Weather Ball, Low Kick, the Veil's retyped starters, and the field extras
+(Friend Guard, Power Spot, Battery, Charge, Foresight, Magic Room, Wonder Room).
+
+```
+node tests/save.test.js [path/to/file.sav]
+```
+
+This reads a real save with `assets/save.js` (the party and every PC box) and checks what comes out. The save is never
+in this repo; by default it looks for one beside the project, and skips if there's none.
 
 ## Files
 
@@ -45,7 +55,9 @@ Technician, crits, screens, Eviolite, Weather Ball, Low Kick, and the Veil's ret
 |---|---|
 | `index.html` | About |
 | `docs.html`, `assets/docs.js` | Documentation, with each floor hidden until opened |
-| `calc.html`, `assets/calc.js`, `assets/calc-engine.js` | Damage calculator (the engine is pure and runs in Node) |
+| `calc.html`, `assets/calc.js`, `assets/calc-engine.js` | Damage calculator (the engine is pure and runs in Node): your party and boxes from a dropped save, the opponents by floor and area, Showdown import / export |
+| `assets/save.js` | Reads a save in the browser (never uploaded) |
+| `assets/icons.png` | Party icons, from the game's own graphics (generated) |
 | `patcher.html` | Patcher (coming soon) |
 | `assets/site.js` | Header, footer, data loading. The game's title is set here once |
 | `assets/style.css` | Styles |

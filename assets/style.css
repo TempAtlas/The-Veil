@@ -175,7 +175,46 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .sc-result-main { font-weight: 700; line-height: 1.45; }
 .sc-result-rolls { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; margin-top: .3rem; }
 .sc { display: grid; gap: .9rem; grid-template-columns: 1fr; align-items: start; }
-.sc > section { min-width: 0; }
+.sc > section, .sc > .sc-col { min-width: 0; }
+.sc-col { display: flex; flex-direction: column; gap: .9rem; min-width: 0; }
+
+/* party icons (the game's own menu icons, assets/icons.png: 32 x 32 a Pokémon, 32 to a row - build_site_data.py),
+   the save's party and boxes, the area finder */
+.sc-icon {
+  display: inline-block; width: 32px; height: 32px; flex: none; image-rendering: pixelated;
+  background-image: url("icons.png"); background-repeat: no-repeat;
+}
+.sc-grid { grid-template-columns: repeat(6, 36px) !important; }
+.sc-io textarea { width: 100%; min-height: 9rem; font-family: var(--mono); font-size: 12px; resize: vertical; }
+.sc-io .sc-btns { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .35rem; }
+.sc-io .sc-msg { font-size: 12px; margin-top: .3rem; }
+.sc-ibtn {
+  padding: 1px !important; border-radius: 6px !important; background: var(--panel-2); border: 1px solid transparent;
+  line-height: 0; cursor: pointer;
+}
+.sc-ibtn:hover, .sc-ibtn:focus-visible { border-color: var(--accent-dim); }
+.sc-ibtn.on { border-color: var(--accent); background: var(--accent-dim); }
+.sc-ibtn.empty { opacity: .25; cursor: default; }
+.sc-icons { display: flex; flex-wrap: wrap; gap: 3px; }
+.sc-grid { display: grid; grid-template-columns: repeat(6, 44px); gap: 3px; }
+.sc-team .sc-row2 { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; margin: .35rem 0; }
+.sc-team select { padding: .25rem .4rem; font-size: 13px; }
+.sc-drop {
+  border: 1px dashed var(--line); border-radius: 8px; padding: .7rem; text-align: center; color: var(--muted);
+  font-size: 12.5px; cursor: pointer;
+}
+.sc-drop:hover, .sc-drop.over { border-color: var(--accent); color: var(--text); }
+.sc-trainer { border-top: 1px solid var(--line); padding: .4rem 0 .3rem; }
+.sc-trainer:first-child { border-top: 0; }
+.sc-trainer.on .sc-tname { color: var(--accent); }
+.sc-tname { font-size: 13px; font-weight: 700; margin-bottom: .2rem; }
+.sc-tname .muted { font-weight: 400; }
+.sc-area-list { max-height: 21rem; overflow-y: auto; padding-right: .2rem; }
+.sc-dropveil {
+  position: fixed; inset: 0; z-index: 50; background: rgba(12, 14, 17, .82); display: grid; place-items: center;
+  border: 3px dashed var(--accent); color: var(--accent); font-size: 1.3rem; font-weight: 800;
+}
+.sc-dropveil[hidden] { display: none; }
 @media (min-width: 1100px) { .sc { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1fr); } }
 @media (min-width: 700px) and (max-width: 1099px) {
   .sc { grid-template-columns: 1fr 1fr; }

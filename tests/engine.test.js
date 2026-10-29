@@ -91,5 +91,26 @@ eq("Boots ignore Stealth Rock", r.ko.text, noSR.ko.text);
 r = C.calculate(G, mon("GARCHOMP"), mon("BLISSEY"), "EARTHQUAKE", {}, { override: { bp: 50 } });
 eq("power override", r.hits[0].bp, 50);
 
+// 14. The field extras (BPE's list): each moves the damage the way the game does
+const eqBase = C.calculate(G, mon("GARCHOMP"), mon("BLISSEY"), "EARTHQUAKE", {});
+r = C.calculate(G, mon("GARCHOMP"), mon("BLISSEY"), "EARTHQUAKE", { defSide: { friendGuard: true } });
+eq("Friend Guard: 3/4", r.max, C.pokeRound((eqBase.max * 3072) / 4096));
+r = C.calculate(G, mon("GARCHOMP"), mon("BLISSEY"), "EARTHQUAKE", { attSide: { powerSpot: true } });
+eq("Power Spot: x1.3 power", r.hits[0].bp, 130);
+r = C.calculate(G, mon("JOLTEON"), mon("BLISSEY"), "THUNDERBOLT", { attSide: { charge: true } });
+eq("Charge: Electric x2 power", r.hits[0].bp, 180);
+r = C.calculate(G, mon("JOLTEON"), mon("BLISSEY"), "THUNDERBOLT", { attSide: { battery: true } });
+eq("Battery: special x1.3 power", r.hits[0].bp, 117);
+r = C.calculate(G, mon("GARCHOMP"), mon("BLISSEY"), "EARTHQUAKE", { attSide: { battery: true } });
+eq("Battery: not physical", r.hits[0].bp, 100);
+r = C.calculate(G, mon("SNORLAX"), mon("GENGAR"), "BODY_SLAM", { defSide: { foresight: true } });
+eq("Foresight: Normal hits Ghost", r.eff, 1);
+const lefties = C.calculate(G, mon("GARCHOMP", { item: "CHOICE_BAND" }), mon("BLISSEY"), "EARTHQUAKE", {});
+r = C.calculate(G, mon("GARCHOMP", { item: "CHOICE_BAND" }), mon("BLISSEY"), "EARTHQUAKE", { magicRoom: true });
+eq("Magic Room: no Choice Band", [r.min, r.max], [eqBase.min, eqBase.max]);
+eq("(Choice Band does something)", lefties.max > eqBase.max, true);
+r = C.calculate(G, mon("GARCHOMP"), mon("BLISSEY"), "EARTHQUAKE", { wonderRoom: true });
+eq("Wonder Room: hits Sp. Def", r.hits[0].def, C.calculate(G, mon("GARCHOMP"), mon("BLISSEY"), "EARTHQUAKE", {}).def.stats.spd);
+
 console.log(fails ? `${fails} FAILED` : "all engine checks pass");
 process.exit(fails ? 1 : 0);

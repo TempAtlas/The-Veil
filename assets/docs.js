@@ -1,5 +1,5 @@
 // The Docs page: tabs, and the floor-gated trainer / wild / item listings built from data/*.json.
-const FLOORS = [1, 2, 3, 4];
+const FLOORS = [1, 2, 3, 4, 5];
 let GAME, TRAINERS, DOCS;
 const state = { tab: "changes", trainerFloor: null, wildFloor: null, itemFloor: null, diff: "normal", shops: false };
 

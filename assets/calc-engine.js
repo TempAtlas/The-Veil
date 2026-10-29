@@ -102,7 +102,7 @@
     for (const t of def.types) {
       let m = CHART[moveType]?.[t] ?? 1;
       if (m === 0 && t === "GHOST" && (moveType === "NORMAL" || moveType === "FIGHTING") &&
-          (att.ability === "SCRAPPY" || att.ability === "MINDS_EYE")) m = 1;
+          (att.ability === "SCRAPPY" || att.ability === "MINDS_EYE" || field.foresight)) m = 1;
       if (m === 0 && t === "FLYING" && moveType === "GROUND" && (move.key === "THOUSAND_ARROWS" || field.gravity)) m = 1;
       if (move.key === "FREEZE_DRY" && t === "WATER") m = 2;
       e *= m;
@@ -246,6 +246,12 @@
     }
     if (ctx.knock) bpMods.push(6144);
     if (field.helpingHand) bpMods.push(6144);
+    // (the attacker's side: an ally's Battery, Power Spot or Steely Spirit; Charge)
+    const as = field.att || {};
+    if (as.battery && !physical) bpMods.push(5325);
+    if (as.powerSpot) bpMods.push(5325);
+    if (as.steelySpirit && type === "STEEL") bpMods.push(6144);
+    if (as.charge && type === "ELECTRIC") bpMods.push(8192);
     const gA = grounded(G, att, field), gD = grounded(G, def, field);
     const terrainBoost = { electric: "ELECTRIC", grassy: "GRASS", psychic: "PSYCHIC" }[field.terrain];
     if (terrainBoost === type && gA) bpMods.push(5325);
@@ -277,6 +283,7 @@
     if (att.ability === "ROCKY_PAYLOAD" && type === "ROCK") atkMods.push(6144);
     if (att.ability === "WATER_BUBBLE" && type === "WATER") atkMods.push(8192);
     if (att.ability === "STAKEOUT" && def.switchedIn) atkMods.push(8192);
+    if (as.flowerGift && physical && field.weather === "sun") atkMods.push(6144);
     if (dAb === "THICK_FAT" && (type === "FIRE" || type === "ICE")) atkMods.push(2048);
     if (dAb === "WATER_BUBBLE" && type === "FIRE") atkMods.push(2048);
     if (dAb === "PURIFYING_SALT" && type === "GHOST") atkMods.push(2048);
@@ -303,6 +310,7 @@
     if (dAb === "FUR_COAT" && useDef) dfMods.push(8192);
     if (dAb === "MARVEL_SCALE" && def.status && useDef) dfMods.push(6144);
     if (dAb === "GRASS_PELT" && field.terrain === "grassy" && useDef) dfMods.push(6144);
+    if (field.flowerGift && !useDef && field.weather === "sun") dfMods.push(6144);
     if (defIt) {
       const h = defIt.hold;
       if (h === "EVIOLITE" && def.sp.nfe) dfMods.push(6144);
@@ -328,6 +336,7 @@
     const finals = [];
     const screen = (physical && (field.reflect || field.auroraVeil)) || (!physical && (field.lightScreen || field.auroraVeil));
     if (screen && !crit && att.ability !== "INFILTRATOR") finals.push(field.doubles ? 2732 : 2048);
+    if (field.friendGuard) finals.push(3072);
     if ((dAb === "MULTISCALE" || def.ability === "SHADOW_SHIELD") && def.curHP === def.maxHP) finals.push(2048);
     if (dAb === "FLUFFY" && has(move, "makesContact")) finals.push(2048);
     if (dAb === "FLUFFY" && type === "FIRE") finals.push(8192);
@@ -453,7 +462,10 @@
   function calculate(G, attIn, defIn, moveKey, field, opts) {
     opts = opts || {};
     field = field || {};
+    // (Magic Room: held items do nothing; Wonder Room: Defense and Sp. Def trade places)
+    if (field.magicRoom) { attIn = Object.assign({}, attIn, { item: "" }); defIn = Object.assign({}, defIn, { item: "" }); }
     const att = prepare(G, attIn), def = prepare(G, defIn);
+    if (field.wonderRoom) [def.stats.def, def.stats.spd] = [def.stats.spd, def.stats.def];
     if (!G.moves[moveKey]) return null;
     // (the panel's own power / type / category boxes, where they were changed)
     const over = {};
@@ -466,7 +478,8 @@
     if (move.cat === "Status" || (!move.bp && !FIXED[moveKey])) {
       return { move, status: true, att, def, desc: `${move.name} doesn't deal damage.` };
     }
-    const fieldFor = Object.assign({}, field, field.defSide || {}, { helpingHand: (field.attSide || {}).helpingHand });
+    const fieldFor = Object.assign({}, field, field.defSide || {}, { helpingHand: (field.attSide || {}).helpingHand,
+      att: field.attSide || {} });
     const plan = hitPlan(G, move, att, opts);
     const hits = plan.map((bp) => hitRolls(G, move, att, def, fieldFor, opts, basePower(G, Object.assign({}, move, bp != null ? { bp } : {}), att, def, fieldFor, ctx), ctx));
     // (the ctx flags basePower sets - Knock Off - apply from the first hit on)

@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="assets/style.css">
   <script src="assets/site.js" defer></script>
   <script src="assets/calc-engine.js" defer></script>
+  <script src="assets/save.js" defer></script>
   <script src="assets/calc.js" defer></script>
 </head>
 <body>
@@ -25,7 +26,11 @@
   </section>
 
   <div class="sc">
-    <section class="sc-panel" id="p1"></section>
+    <div class="sc-col">
+      <!-- your party and PC boxes, from your save (read in the browser; never uploaded) -->
+      <section class="sc-box sc-team" id="mine" aria-label="Your Pokémon"></section>
+      <section class="sc-panel" id="p1"></section>
+    </div>
 
     <section class="sc-mid">
       <div class="sc-movelists">
@@ -39,20 +44,32 @@
         <div class="sc-btnrow" data-key="format"><span>Format</span></div>
         <div class="sc-btnrow" data-key="terrain"><span>Terrain</span></div>
         <div class="sc-btnrow" data-key="weather"><span>Weather</span></div>
-        <label class="sc-check"><input type="checkbox" id="f-gravity"> Gravity</label>
+        <div class="sc-flags">
+          <label class="sc-check"><input type="checkbox" id="f-gravity"> Gravity</label>
+          <label class="sc-check"><input type="checkbox" id="f-magicRoom"> Magic Room</label>
+          <label class="sc-check"><input type="checkbox" id="f-wonderRoom"> Wonder Room</label>
+        </div>
         <div class="sc-sides">
           <div id="side-p1"></div>
           <div id="side-p2"></div>
         </div>
       </div>
 
+      <div class="sc-box sc-io" id="io"></div>
+
       <p class="sc-note">Built on the game's own data: the Veil's starter variants, the reworked Illuminate and every
         trainer's sets on Normal and Hard. The game has no EVs, so there are none here. KO chances include hazards,
         Leftovers / Black Sludge and weather or status chip.</p>
     </section>
 
-    <section class="sc-panel" id="p2"></section>
+    <div class="sc-col">
+      <!-- the opponents, area by area: each trainer's team, and the area's wild Pokémon -->
+      <section class="sc-box sc-team" id="finder" aria-label="Opponents by area"></section>
+      <section class="sc-panel" id="p2"></section>
+    </div>
   </div>
+  <div class="sc-dropveil" id="dropveil" hidden><div>Drop your save to load your party and boxes</div></div>
+  <input type="file" id="save-file" accept=".sav,.srm,.sa1" hidden>
 </main>
 </body>
 </html>
