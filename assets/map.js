@@ -59,6 +59,13 @@ function openMap(name) {
   renderAll();
 }
 function renderAll() { renderTools(); renderStage(); renderInfo(); renderList(); save(); }
+// a way out's map, on whichever floor it is
+function goTo(name) {
+  const f = M.floors.find((x) => x.maps.some((m) => m.name === name));
+  if (!f) return;
+  S.floor = f.floor;
+  openMap(name);
+}
 
 // --------------------------------------------------------------------------------------------- the map
 const trainerName = (t) => TRAINERS.get(t.id)?.t.title || t.fallback;
@@ -86,10 +93,49 @@ function renderStage() {
   const px = M.tile * S.zoom;
   stage.style.width = `${m.w * px}px`;
   stage.style.height = `${m.h * px}px`;
+  const cursor = h("div", { class: "mp-cursor", style: `width:${px}px;height:${px}px`, hidden: true });
+  const at = (p) => p && ["person", "sign", "exit", "spot"].includes(p.kind) ? p : null;
+  const spot = at(S.pick);
   stage.replaceChildren(h("img", { src: m.img, alt: `${m.title}, as built`, width: m.w * px, height: m.h * px, class: "mp-img" }),
+    spot ? h("div", { class: "mp-cursor on", style: `width:${px}px;height:${px}px;left:${spot.x * px}px;top:${spot.y * px}px` }) : null,
+    cursor,
     ...markers(m).map((k) => h("button", { class: `mp-pin ${k.kind}${same(S.pick, k) ? " on" : ""}`, title: k.tip, "aria-label": k.tip,
       style: `left:${(k.x + 0.5) * px}px;top:${(k.y + 0.5) * px}px`,
-      onclick: () => { S.pick = k; renderStage(); renderInfo(); renderList(); save(); } })));
+      onclick: (e) => { e.stopPropagation(); S.pick = k; renderStage(); renderInfo(); renderList(); save(); } })));
+  // anywhere on the map: what stands on that tile (a person's sprite reaches a tile above their own)
+  const tileOf = (e) => { const r = stage.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / px), Math.floor((e.clientY - r.top) / px)]; };
+  stage.onmousemove = (e) => {
+    const [x, y] = tileOf(e);
+    cursor.hidden = x < 0 || y < 0 || x >= m.w || y >= m.h;
+    cursor.style.left = `${x * px}px`; cursor.style.top = `${y * px}px`;
+  };
+  stage.onmouseleave = () => { cursor.hidden = true; };
+  stage.onclick = (e) => {
+    if (e.target.closest(".mp-pin")) return;
+    const [x, y] = tileOf(e);
+    S.pick = whatIsAt(m, x, y);
+    renderStage(); renderInfo(); renderList(); save();
+  };
+}
+
+// the thing on a tile: a marker's own (trainer, item, trade), else a person, a sign, a way out - else the bare tile
+function whatIsAt(m, x, y) {
+  const on = (o, tall) => o.x === x && (o.y === y || (tall && o.y === y + 1));
+  for (const tall of [false, true]) {
+    const ti = m.trainers.findIndex((t) => on(t, tall));
+    if (ti >= 0) return { kind: "trainer", id: m.trainers[ti].id, i: ti };
+    const ii = m.items.findIndex((it) => on(it, false) && (it.hidden ? S.show.hidden : true));
+    if (ii >= 0 && !tall) return { kind: m.items[ii].hidden ? "hidden" : "item", i: ii };
+    const di = m.trades.findIndex((d) => on(d, tall));
+    if (di >= 0) return { kind: "trade", i: di };
+    const pi = (m.people || []).findIndex((p) => on(p, tall));
+    if (pi >= 0) return { kind: "person", i: pi, x: m.people[pi].x, y: m.people[pi].y };
+  }
+  const si = (m.signs || []).findIndex((s) => on(s, false));
+  if (si >= 0) return { kind: "sign", i: si, x, y };
+  const ei = (m.exits || []).findIndex((d) => on(d, false));
+  if (ei >= 0) return { kind: "exit", i: ei, x, y };
+  return { kind: "spot", x, y };
 }
 
 // ------------------------------------------------------------------------------------------- the card
@@ -108,8 +154,9 @@ function renderInfo() {
   if (!m) { box.replaceChildren(); return; }
   if (!p) {
     box.replaceChildren(h("div", { class: "sc-h" }, m.title),
-      h("p", { class: "muted small" }, "Click a marker on the map for its details."),
-      h("div", { class: "mp-legend small" }, [["trainer", "Trainer"], ["item", "Item ball"], ["hidden", "Hidden item"], ["trade", "Delver trade"]]
+      h("p", { class: "muted small" }, "Click anything on the map - a marker, a person, a sign, a doorway - to see what it is."),
+      h("div", { class: "mp-legend small" }, [["trainer", "Trainer"], ["item", "Item ball"], ["hidden", "Hidden item"], ["trade", "Delver trade"],
+        ["person", "Person"], ["sign", "Sign"], ["exit", "Way out"]]
         .map(([c, t]) => h("span", {}, h("span", { class: `mp-key ${c}` }), t))));
     return;
   }
@@ -130,6 +177,32 @@ function renderInfo() {
       h("div", { class: "muted small" }, `${found.place} · (${raw.x}, ${raw.y})${t.double ? " · double battle" : ""}`),
       h("div", { class: "mp-team" }, teamRows(t, S.diff)),
       h("a", { class: "btn mp-calc", href: calcLink(t.id, S.diff, 0) }, "Open in the damage calculator ›")].filter(Boolean));
+    return;
+  }
+  if (p.kind === "person") {
+    const o = m.people[p.i];
+    box.replaceChildren(...[h("div", { class: "sc-h" }, o.who),
+      o.says ? h("p", { class: "mp-says" }, `“${o.says}”`) : h("p", { class: "muted small" }, "Has nothing to say."),
+      h("div", { class: "muted small" }, `(${o.x}, ${o.y})`)].filter(Boolean));
+    return;
+  }
+  if (p.kind === "sign") {
+    const s = m.signs[p.i];
+    box.replaceChildren(h("div", { class: "sc-h" }, "A sign"), h("p", { class: "mp-says" }, s.says),
+      h("div", { class: "muted small" }, `(${s.x}, ${s.y})`));
+    return;
+  }
+  if (p.kind === "exit") {
+    const d = m.exits[p.i];
+    const there = M.floors.some((f) => f.maps.some((x) => x.name === d.to));
+    box.replaceChildren(...[h("div", { class: "sc-h" }, "A way out"), h("p", {}, `Leads to ${d.toTitle}.`),
+      there ? h("button", { class: "btn mp-calc", onclick: () => goTo(d.to) }, `Go to ${d.toTitle} ›`) : null,
+      h("div", { class: "muted small" }, `(${d.x}, ${d.y})`)].filter(Boolean));
+    return;
+  }
+  if (p.kind === "spot") {
+    box.replaceChildren(h("div", { class: "sc-h" }, m.title), h("p", { class: "muted small" }, `(${p.x}, ${p.y}): nothing here.`),
+      h("p", { class: "muted small" }, "Click a person, an item, a sign or a doorway to see what it is."));
     return;
   }
   if (p.kind === "trade") {
@@ -153,7 +226,7 @@ function renderList() {
   if (!m) { box.replaceChildren(); return; }
   const pickBtn = (k, text) => h("button", { class: "mp-row" + (same(S.pick, k) ? " on" : ""), onclick: () => {
     S.pick = k; renderStage(); renderInfo(); renderList(); save();
-    document.querySelector(".mp-pin.on")?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    document.querySelector(".mp-pin.on, .mp-cursor.on")?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
   } }, h("span", { class: `mp-key ${k.kind}` }), text);
   const rows = [];
   if (m.trainers.length) {
@@ -168,6 +241,19 @@ function renderList() {
   if (m.trades.length) {
     rows.push(h("div", { class: "sc-sub muted small" }, "Trades"));
     m.trades.forEach((d, i) => rows.push(pickBtn({ kind: "trade", i }, `${d.wants || "Talks"} → ${d.gives || "-"}`)));
+  }
+  if (m.people?.length) {
+    rows.push(h("div", { class: "sc-sub muted small" }, "People"));
+    m.people.forEach((o, i) => rows.push(pickBtn({ kind: "person", i, x: o.x, y: o.y }, o.who)));
+  }
+  if (m.signs?.length) {
+    rows.push(h("div", { class: "sc-sub muted small" }, "Signs"));
+    m.signs.forEach((s, i) => rows.push(pickBtn({ kind: "sign", i, x: s.x, y: s.y }, s.says.length > 34 ? s.says.slice(0, 33) + "…" : s.says)));
+  }
+  if (m.exits?.length) {
+    rows.push(h("div", { class: "sc-sub muted small" }, "Ways out"));
+    const seen = new Set();
+    m.exits.forEach((d, i) => { if (!seen.has(d.to)) { seen.add(d.to); rows.push(pickBtn({ kind: "exit", i, x: d.x, y: d.y }, `→ ${d.toTitle}`)); } });
   }
   if (m.rewards.length) {
     rows.push(h("div", { class: "sc-sub muted small" }, "Given here (no marker)"));

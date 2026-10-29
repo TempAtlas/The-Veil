@@ -1,6 +1,8 @@
 // Shared by every page: the header and footer, data loading, and small helpers.
 // The game's name lives here once - change it and every page follows.
 const SITE = {
+  // (tools/stamp-version.sh: the data is fetched with this, so an update reaches browsers that kept the old files)
+  version: "202610291513",
   title: "The Veil",
   tagline: "A Pokémon Emerald descent",
   pages: [
@@ -44,7 +46,7 @@ function chrome() {
 const _cache = {};
 function loadJSON(name) {
   if (!_cache[name]) {
-    _cache[name] = fetch(`data/${name}`).then((r) => {
+    _cache[name] = fetch(`data/${name}?v=${SITE.version}`).then((r) => {
       if (!r.ok) throw new Error(`data/${name}: ${r.status}`);
       return r.json();
     });
