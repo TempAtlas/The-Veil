@@ -6,6 +6,7 @@ const SITE = {
   pages: [
     ["index.html", "About"],
     ["docs.html", "Docs"],
+    ["map.html", "Map"],
     ["calc.html", "Damage Calc"],
     ["patcher.html", "Patcher"],
   ],

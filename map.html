@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title} - Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=JetBrains+Mono&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/site.js" defer></script>
+  <script src="assets/map.js" defer></script>
+</head>
+<body>
+<main class="mp-main">
+  <h1>Map</h1>
+  <p class="lead">Every map as it's built, with its trainers and items. Pick a floor to open it - each floor stays
+    hidden until you do. Click a marker for the details; a trainer opens straight into the damage calculator.</p>
+
+  <div class="toolbar mp-tools">
+    <div class="seg" id="mp-floors" role="tablist" aria-label="Floor"></div>
+    <select id="mp-map" aria-label="Map" hidden></select>
+    <span class="mp-toggles" id="mp-toggles" hidden></span>
+    <span class="seg mp-zoom" id="mp-zoom" aria-label="Zoom" hidden></span>
+  </div>
+
+  <div class="gate" id="mp-gate">Choose a floor above.</div>
+
+  <div class="mp" id="mp" hidden>
+    <div class="mp-view" id="mp-view"><div class="mp-stage" id="mp-stage"></div></div>
+    <aside class="mp-side">
+      <div class="sc-box" id="mp-info"></div>
+      <div class="sc-box" id="mp-list"></div>
+    </aside>
+  </div>
+</main>
+</body>
+</html>
