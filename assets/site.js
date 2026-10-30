@@ -2,7 +2,7 @@
 // The game's name lives here once - change it and every page follows.
 const SITE = {
   // (tools/stamp-version.sh: the data is fetched with this, so an update reaches browsers that kept the old files)
-  version: "202610291513",
+  version: "202610292010",
   title: "The Veil",
   tagline: "A Pokémon Emerald descent",
   pages: [
